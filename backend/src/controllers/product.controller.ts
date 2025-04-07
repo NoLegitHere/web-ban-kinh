@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { AppDataSource } from '../config/database';
 import { Product } from '../models/product.entity';
-import { Like, ILike } from 'typeorm';
+import { Like, ILike, MoreThanOrEqual, LessThanOrEqual, Between } from 'typeorm';
 
 export class ProductController {
     private productRepository = AppDataSource.getRepository(Product);
@@ -17,68 +17,75 @@ export class ProductController {
 
     async getAllProducts(req: Request, res: Response): Promise<void> {
         try {
-            console.log("Getting products with filters:", req.query);
-            const { category, search, sort } = req.query;
-
-            // Log incoming request parameters for debugging
-            console.log("Category:", category);
-            console.log("Search:", search);
-            console.log("Sort:", sort);
-
-            // Build where conditions
-            const whereConditions: any = {};
+            const { category, search, sort, brand, minPrice, maxPrice } = req.query;
+            
+            // Build query with QueryBuilder for more complex conditions
+            let query = this.productRepository
+                .createQueryBuilder('product')
+                .leftJoinAndSelect('product.brand', 'brand');
+            
+            // Apply filters
             if (category) {
-                whereConditions.category = category;
+                query = query.andWhere('product.category = :category', { category });
             }
+            
             if (search) {
-                whereConditions.name = ILike(`%${search}%`);
+                // Use LOWER for case-insensitive search instead of ILIKE
+                query = query.andWhere('LOWER(product.name) LIKE LOWER(:search)', { search: `%${search}%` });
             }
-
-            // Build order conditions
-            let orderConditions: any = { id: 'DESC' }; // Default sorting
+            
+            if (brand) {
+                // Use direct equal comparison
+                query = query.andWhere('brand.name = :brand', { brand });
+            }
+            
+            // Safer parsing of price values
+            let minPriceValue: number | undefined = undefined;
+            let maxPriceValue: number | undefined = undefined;
+            
+            if (minPrice && !isNaN(Number(minPrice))) {
+                minPriceValue = parseInt(minPrice as string);
+                query = query.andWhere('product.price >= :minPrice', { minPrice: minPriceValue });
+            }
+            
+            if (maxPrice && !isNaN(Number(maxPrice))) {
+                maxPriceValue = parseInt(maxPrice as string);
+                query = query.andWhere('product.price <= :maxPrice', { maxPrice: maxPriceValue });
+            }
+            
+            // Apply sorting
             if (sort) {
                 switch (sort) {
                     case 'price-asc':
-                        orderConditions = { price: 'ASC' };
+                        query = query.orderBy('product.price', 'ASC');
                         break;
                     case 'price-desc':
-                        orderConditions = { price: 'DESC' };
+                        query = query.orderBy('product.price', 'DESC');
                         break;
                     case 'name-asc':
-                        orderConditions = { name: 'ASC' };
+                        query = query.orderBy('product.name', 'ASC');
                         break;
                     case 'name-desc':
-                        orderConditions = { name: 'DESC' };
+                        query = query.orderBy('product.name', 'DESC');
                         break;
-                    case 'newest':
-                        orderConditions = { id: 'DESC' };
-                        break;
-                    // Add more sorting options as needed
                     default:
-                        console.log(`Unknown sort parameter: ${sort}`);
-                        orderConditions = { id: 'DESC' };
-                        break;
+                        query = query.orderBy('product.id', 'DESC');
                 }
+            } else {
+                query = query.orderBy('product.id', 'DESC');
             }
-
-            // Query with filters
-            const products = await this.productRepository.find({
-                where: whereConditions,
-                relations: ['brand'],
-                order: orderConditions
-            });
             
-            console.log(`Found ${products.length} products matching criteria`);
-            res.json(products);
+            // Execute query
+            const products = await query.getMany();
+            
+            res.status(200).json(products);
         } catch (error) {
-            console.error("Error fetching products:", error);
-            res.status(500).json({ message: "Failed to fetch products" });
+            res.status(500).json({ message: 'Internal server error' });
         }
     }
 
     async getProductById(req: Request, res: Response): Promise<void> {
         try {
-            console.log(`Getting product with id: ${req.params.id}`);
             // Added relations to include the brand entity
             const product = await this.productRepository.findOne({
                 where: { id: parseInt(req.params.id) },
@@ -86,14 +93,12 @@ export class ProductController {
             });
             
             if (!product) {
-                console.log(`Product not found: ${req.params.id}`);
                 res.status(404).json({ message: 'Product not found' });
                 return;
             }
             
             res.json(product);
         } catch (error) {
-            console.error("Error fetching product:", error);
             res.status(500).json({ message: "Failed to fetch product" });
         }
     }
@@ -104,7 +109,6 @@ export class ProductController {
             const result = await this.productRepository.save(product);
             res.status(201).json(result);
         } catch (error) {
-            console.error("Error creating product:", error);
             res.status(500).json({ message: "Failed to create product" });
         }
     }
@@ -114,7 +118,6 @@ export class ProductController {
             await this.productRepository.update(parseInt(req.params.id), req.body);
             res.json({ message: 'Product updated successfully' });
         } catch (error) {
-            console.error("Error updating product:", error);
             res.status(500).json({ message: "Failed to update product" });
         }
     }
@@ -124,7 +127,6 @@ export class ProductController {
             await this.productRepository.delete(parseInt(req.params.id));
             res.json({ message: 'Product deleted successfully' });
         } catch (error) {
-            console.error("Error deleting product:", error);
             res.status(500).json({ message: "Failed to delete product" });
         }
     }

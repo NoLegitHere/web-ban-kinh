@@ -15,6 +15,10 @@ interface SearchParamsProps {
   category?: string;
   sort?: string;
   search?: string;
+  brand?: string;
+  minPrice?: string;
+  maxPrice?: string;
+  _t?: string;
 }
 
 export default function ProductsClient({ 
@@ -35,22 +39,47 @@ export default function ProductsClient({
     async function loadProducts() {
       setIsLoading(true);
       try {
-        console.log("Loading products with params:", searchParams);
-        
         // Add timestamp to avoid caching
         const timestamp = new Date().getTime();
-        console.log(`Fetching products at ${timestamp}`);
+        
+        // Build a clean params object to ensure all filters are included
+        const cleanParams: Record<string, string> = {
+          _t: timestamp.toString()
+        };
+        
+        // Add category filter if present
+        if (searchParams.category) {
+          cleanParams.category = searchParams.category;
+        }
+        
+        // Add search filter if present
+        if (searchParams.search) {
+          cleanParams.search = searchParams.search;
+        }
+        
+        // Add sort parameter if present
+        if (searchParams.sort) {
+          cleanParams.sort = searchParams.sort;
+        }
+        
+        // Add brand filter if present
+        if (searchParams.brand) {
+          cleanParams.brand = searchParams.brand;
+        }
+        
+        // Add price filters if present - ensure they're valid numbers
+        if (searchParams.minPrice && !isNaN(Number(searchParams.minPrice))) {
+          cleanParams.minPrice = searchParams.minPrice;
+        }
+        
+        if (searchParams.maxPrice && !isNaN(Number(searchParams.maxPrice))) {
+          cleanParams.maxPrice = searchParams.maxPrice;
+        }
         
         // Fetch products from the API with search parameters
-        const result = await productAPI.getAll({
-          ...searchParams,
-          _t: timestamp.toString() // Add cache-busting parameter
-        });
-        
-        console.log("API returned products:", result?.length || 0);
+        const result = await productAPI.getAll(cleanParams);
         setProducts(result);
       } catch (error) {
-        console.error("Failed to fetch products:", error);
         // Set fallback data
         setProducts(getFallbackProducts(searchParams));
         toast({
@@ -98,33 +127,80 @@ export default function ProductsClient({
       },
       {
         id: 3,
-        name: "Kính Cận Titanium",
-        description: "Kính cận gọng titanium siêu nhẹ và bền bỉ",
-        price: 1850000,
+        name: "Kính Oakley Holbrook",
+        description: "Kính thể thao Oakley Holbrook siêu bền và chống va đập",
+        price: 3200000,
         imageUrl: "https://images.unsplash.com/photo-1619449993667-6dee759dd3c1?q=80&w=580&h=580&auto=format&fit=crop",
         category: "men",
-        brand: { name: "Titanium" }
+        brand: { name: "Oakley" }
       },
       {
         id: 4,
-        name: "Kính Mát Polarized",
-        description: "Kính mát polarized chống tia UV hiệu quả cho mùa hè",
-        price: 1250000,
+        name: "Kính Prada Linea Rossa",
+        description: "Kính mát Prada Linea Rossa với thiết kế thể thao hiện đại",
+        price: 5800000,
         imageUrl: "https://images.unsplash.com/photo-1577803645773-f96470509666?q=80&w=580&h=580&auto=format&fit=crop",
         category: "sunglasses",
-        brand: { name: "Polaroid" }
+        brand: { name: "Prada" }
+      },
+      {
+        id: 5,
+        name: "Kính Versace VE4361",
+        description: "Kính mát Versace VE4361 với logo Medusa đặc trưng",
+        price: 4900000,
+        imageUrl: "https://images.unsplash.com/photo-1508296695146-257a814070b4?q=80&w=580&h=580&auto=format&fit=crop",
+        category: "women",
+        brand: { name: "Versace" }
+      },
+      {
+        id: 6,
+        name: "Kính Burberry BE4216",
+        description: "Kính mát Burberry BE4216 với họa tiết kẻ caro biểu tượng",
+        price: 4200000,
+        imageUrl: "https://images.unsplash.com/photo-1511499767150-a48a237f0083?q=80&w=580&h=580&auto=format&fit=crop",
+        category: "premium",
+        brand: { name: "Burberry" }
+      },
+      {
+        id: 7,
+        name: "Kính Persol 649",
+        description: "Kính mát Persol 649 phong cách vintage đầy lịch lãm",
+        price: 3650000,
+        imageUrl: "https://images.unsplash.com/photo-1577803645773-f96470509666?q=80&w=580&h=580&auto=format&fit=crop",
+        category: "men",
+        brand: { name: "Persol" }
       }
     ];
     
     // Apply filters manually for the fallback data
     let filteredProducts = products;
     
+    // Filter by category
     if (params.category) {
       filteredProducts = filteredProducts.filter(
         (product) => product.category === params.category
       );
     }
 
+    // Filter by brand - ensure case-insensitive comparison
+    if (params.brand) {
+      const brandName = params.brand.toLowerCase();
+      filteredProducts = filteredProducts.filter(
+        (product) => product.brand.name.toLowerCase() === brandName
+      );
+    }
+
+    // Filter by price range
+    if (params.minPrice || params.maxPrice) {
+      const minPrice = params.minPrice ? parseInt(params.minPrice) : 0;
+      const maxPrice = params.maxPrice ? parseInt(params.maxPrice) : Number.MAX_SAFE_INTEGER;
+      
+      filteredProducts = filteredProducts.filter(
+        (product) => product.price >= minPrice && product.price <= maxPrice
+      );
+    }
+
+    // Filter by search term
     if (params.search) {
       const searchTerm = params.search.toLowerCase();
       filteredProducts = filteredProducts.filter((product) =>
@@ -134,6 +210,7 @@ export default function ProductsClient({
       );
     }
 
+    // Sort products
     if (params.sort) {
       switch (params.sort) {
         case "price-asc":
@@ -160,6 +237,37 @@ export default function ProductsClient({
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
 
+  // Function to get filter description
+  const getFilterDescription = () => {
+    const parts = [];
+    
+    if (searchParams?.category) {
+      const categoryMap: Record<string, string> = {
+        "men": "Kính nam",
+        "women": "Kính nữ",
+        "sunglasses": "Kính râm",
+        "premium": "Kính cao cấp"
+      };
+      parts.push(`danh mục ${categoryMap[searchParams.category] || searchParams.category}`);
+    }
+    
+    if (searchParams?.brand) {
+      parts.push(`thương hiệu ${searchParams.brand}`);
+    }
+    
+    if (searchParams?.minPrice || searchParams?.maxPrice) {
+      const minPrice = searchParams.minPrice ? parseInt(searchParams.minPrice).toLocaleString('vi-VN') : '0';
+      const maxPrice = searchParams.maxPrice ? parseInt(searchParams.maxPrice).toLocaleString('vi-VN') : 'không giới hạn';
+      parts.push(`giá từ ${minPrice}₫ đến ${maxPrice}₫`);
+    }
+    
+    if (searchParams?.search) {
+      parts.push(`tìm kiếm "${searchParams.search}"`);
+    }
+    
+    return parts.length > 0 ? ` với ${parts.join(', ')}` : "";
+  };
+
   return (
     <div className="container mx-auto px-4 py-10">
       <div className="flex flex-col space-y-4 md:space-y-0 md:flex-row md:space-x-8">
@@ -174,7 +282,7 @@ export default function ProductsClient({
             <h1 className="text-3xl font-bold">Sản phẩm kính mắt</h1>
             {!isLoading && (
               <p className="text-muted-foreground">
-                {products.length} sản phẩm {searchParams?.category ? `trong danh mục ${searchParams.category}` : ""}
+                {products.length} sản phẩm{getFilterDescription()}
               </p>
             )}
           </div>
