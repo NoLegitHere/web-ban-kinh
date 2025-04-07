@@ -34,8 +34,8 @@ const ProductFilter = () => {
   const minPriceParam = searchParams.get("minPrice");
   const maxPriceParam = searchParams.get("maxPrice");
   const [priceRange, setPriceRange] = useState<[number, number]>([
-    minPriceParam && !isNaN(Number(minPriceParam)) ? parseInt(minPriceParam) / 70000 : 0,
-    maxPriceParam && !isNaN(Number(maxPriceParam)) ? parseInt(maxPriceParam) / 70000 : 100,
+    minPriceParam && !isNaN(Number(minPriceParam)) ? parseInt(minPriceParam) / 100000 : 0,
+    maxPriceParam && !isNaN(Number(maxPriceParam)) ? parseInt(maxPriceParam) / 100000 : 100,
   ]);
   
   // Available brands
@@ -97,8 +97,8 @@ const ProductFilter = () => {
   // Handle price filter apply - this actually updates the URL
   const applyPriceFilter = (value: [number, number]) => {
     // Convert slider values to actual prices
-    const minPrice = Math.round(value[0] * 70000);
-    const maxPrice = Math.round(value[1] * 70000);
+    const minPrice = Math.round(value[0] * 100000);
+    const maxPrice = Math.round(value[1] * 100000);
     
     // Create new URL params
     const params = new URLSearchParams(searchParams.toString());
@@ -110,7 +110,7 @@ const ProductFilter = () => {
       params.delete("minPrice");
     }
     
-    if (maxPrice < 7000000) {
+    if (maxPrice < 10000000) {
       params.set("maxPrice", maxPrice.toString());
     } else {
       params.delete("maxPrice");
@@ -155,7 +155,7 @@ const ProductFilter = () => {
       style: 'currency', 
       currency: 'VND',
       maximumFractionDigits: 0
-    }).format(value * 70000);
+    }).format(value * 100000);
   };
 
   // Reset all filters
