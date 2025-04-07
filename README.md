@@ -28,8 +28,8 @@ This project is organized into two main directories:
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd <repository-directory>
+git clone https://github.com/NoLegitHere/web-ban-kinh
+cd web-ban-kinh
 ```
 
 2. Install backend dependencies:
