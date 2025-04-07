@@ -56,8 +56,13 @@ async function fetchAPI<T>(
     }
     
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'API request failed');
+      const errorText = await response.text();
+      try {
+        const error = JSON.parse(errorText);
+        throw new Error(error.message || 'API request failed');
+      } catch (e) {
+        throw new Error(`API request failed: ${errorText}`);
+      }
     }
     
     // Return empty object for 204 No Content responses
@@ -65,9 +70,9 @@ async function fetchAPI<T>(
       return {} as T;
     }
     
-    return await response.json();
+    const data = await response.json();
+    return data;
   } catch (error) {
-    console.error('API Error:', error);
     throw error;
   }
 }
@@ -121,21 +126,55 @@ export const productAPI = {
     category?: string; 
     search?: string; 
     sort?: string;
+    brand?: string;
+    minPrice?: string;
+    maxPrice?: string;
     _t?: string; // Timestamp for cache busting
   }) => {
     let queryString = '';
     
     if (params) {
       const query = new URLSearchParams();
-      if (params.category) query.append('category', params.category);
-      if (params.search) query.append('search', params.search);
-      if (params.sort) query.append('sort', params.sort);
-      if (params._t) query.append('_t', params._t);
+      
+      // Handle each parameter carefully
+      if (params.category && params.category.trim() !== '') {
+        query.append('category', params.category);
+      }
+      
+      if (params.search && params.search.trim() !== '') {
+        query.append('search', params.search);
+      }
+      
+      if (params.sort && params.sort !== 'newest') {
+        query.append('sort', params.sort);
+      }
+      
+      if (params.brand && params.brand.trim() !== '') {
+        query.append('brand', params.brand);
+      }
+      
+      // Make sure price parameters are valid numbers
+      if (params.minPrice && !isNaN(Number(params.minPrice)) && Number(params.minPrice) > 0) {
+        query.append('minPrice', params.minPrice);
+      }
+      
+      if (params.maxPrice && !isNaN(Number(params.maxPrice))) {
+        query.append('maxPrice', params.maxPrice);
+      }
+      
+      if (params._t) {
+        query.append('_t', params._t);
+      }
+      
       queryString = `?${query.toString()}`;
     }
     
-    console.log(`Fetching products with queryString: ${queryString}`);
-    return fetchAPI<any[]>(`/products${queryString}`);
+    try {
+      const result = await fetchAPI<any[]>(`/products${queryString}`);
+      return result;
+    } catch (error) {
+      throw error;
+    }
   },
   
   getById: async (id: string) => {

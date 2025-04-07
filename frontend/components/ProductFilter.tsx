@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,26 @@ const ProductFilter = () => {
   const currentCategory = searchParams.get("category") || "";
   const currentSort = searchParams.get("sort") || "newest";
   const currentSearch = searchParams.get("search") || "";
+  const currentBrand = searchParams.get("brand") || "";
+  
+  // Price range state
+  const minPriceParam = searchParams.get("minPrice");
+  const maxPriceParam = searchParams.get("maxPrice");
+  const [priceRange, setPriceRange] = useState<[number, number]>([
+    minPriceParam && !isNaN(Number(minPriceParam)) ? parseInt(minPriceParam) / 70000 : 0,
+    maxPriceParam && !isNaN(Number(maxPriceParam)) ? parseInt(maxPriceParam) / 70000 : 100,
+  ]);
+  
+  // Available brands
+  const brands = [
+    "Ray-Ban",
+    "Gucci",
+    "Oakley",
+    "Prada",
+    "Versace",
+    "Burberry",
+    "Persol",
+  ];
 
   // Create URL with new parameters
   const createQueryString = (
@@ -52,7 +72,6 @@ const ProductFilter = () => {
   // Handle category selection
   const handleCategoryChange = (category: string) => {
     const queryString = createQueryString("category", category);
-    console.log("Category changed to:", category, "Query:", queryString);
     
     // Use replace and force a full replacement rather than shallow routing
     // This ensures that the server component will refetch with new params
@@ -61,10 +80,55 @@ const ProductFilter = () => {
     });
   };
 
+  // Handle brand selection
+  const handleBrandChange = (brand: string) => {
+    const queryString = createQueryString("brand", brand);
+    
+    router.push(`/products?${queryString}`, {
+      scroll: false
+    });
+  };
+
+  // Handle price range change - update local state only 
+  const handlePriceRangeChange = (value: [number, number]) => {
+    setPriceRange(value);
+  };
+
+  // Handle price filter apply - this actually updates the URL
+  const applyPriceFilter = (value: [number, number]) => {
+    // Convert slider values to actual prices
+    const minPrice = Math.round(value[0] * 70000);
+    const maxPrice = Math.round(value[1] * 70000);
+    
+    // Create new URL params
+    const params = new URLSearchParams(searchParams.toString());
+    
+    // Set min and max price params
+    if (minPrice > 0) {
+      params.set("minPrice", minPrice.toString());
+    } else {
+      params.delete("minPrice");
+    }
+    
+    if (maxPrice < 7000000) {
+      params.set("maxPrice", maxPrice.toString());
+    } else {
+      params.delete("maxPrice");
+    }
+    
+    // Add timestamp for cache busting
+    params.set("_t", Date.now().toString());
+    
+    const queryString = params.toString();
+    
+    router.push(`/products?${queryString}`, {
+      scroll: false
+    });
+  };
+
   // Handle sort change
   const handleSortChange = (sort: string) => {
     const queryString = createQueryString("sort", sort);
-    console.log("Sort changed to:", sort, "Query:", queryString);
     
     // Use replace and force a full replacement rather than shallow routing
     router.push(`/products?${queryString}`, {
@@ -78,12 +142,29 @@ const ProductFilter = () => {
     const formData = new FormData(e.currentTarget);
     const search = formData.get("search") as string;
     const queryString = createQueryString("search", search);
-    console.log("Search for:", search, "Query:", queryString);
     
     // Use replace and force a full replacement rather than shallow routing 
     router.push(`/products?${queryString}`, {
       scroll: false
     });
+  };
+
+  // Format currency 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('vi-VN', { 
+      style: 'currency', 
+      currency: 'VND',
+      maximumFractionDigits: 0
+    }).format(value * 70000);
+  };
+
+  // Reset all filters
+  const resetAllFilters = () => {
+    // Reset price range state to default values
+    setPriceRange([0, 100]);
+    
+    // Clear all URL parameters and navigate to base products page
+    router.push("/products", { scroll: false });
   };
 
   return (
@@ -116,7 +197,7 @@ const ProductFilter = () => {
         </Select>
       </div>
 
-      <Accordion type="single" collapsible className="w-full">
+      <Accordion type="multiple" defaultValue={["category", "brand", "price"]} className="w-full">
         <AccordionItem value="category">
           <AccordionTrigger className="text-lg font-semibold">Danh mục</AccordionTrigger>
           <AccordionContent>
@@ -147,20 +228,25 @@ const ProductFilter = () => {
           <AccordionTrigger className="text-lg font-semibold">Thương hiệu</AccordionTrigger>
           <AccordionContent>
             <div className="space-y-2 pl-1">
-              {[
-                "Ray-Ban",
-                "Gucci",
-                "Oakley",
-                "Prada",
-                "Versace",
-                "Titanium",
-                "Polaroid",
-              ].map((brand) => (
-                <div key={brand} className="flex items-center space-x-2 py-1">
-                  <Checkbox id={`brand-${brand}`} />
-                  <Label htmlFor={`brand-${brand}`} className="text-sm cursor-pointer">
-                    {brand}
-                  </Label>
+              <div
+                className={cn(
+                  "flex items-center cursor-pointer hover:text-primary py-1",
+                  currentBrand === "" && "font-medium text-primary"
+                )}
+                onClick={() => handleBrandChange("")}
+              >
+                Tất cả
+              </div>
+              {brands.map((brand) => (
+                <div
+                  key={brand}
+                  className={cn(
+                    "flex items-center cursor-pointer hover:text-primary py-1",
+                    currentBrand === brand && "font-medium text-primary"
+                  )}
+                  onClick={() => handleBrandChange(brand)}
+                >
+                  {brand}
                 </div>
               ))}
             </div>
@@ -171,18 +257,22 @@ const ProductFilter = () => {
           <AccordionTrigger className="text-lg font-semibold">Giá</AccordionTrigger>
           <AccordionContent>
             <div className="space-y-4 pt-2">
-              <Slider defaultValue={[0, 50]} max={100} step={1} />
+              <Slider 
+                value={priceRange} 
+                max={100} 
+                step={1} 
+                minStepsBetweenThumbs={5}
+                onValueChange={handlePriceRangeChange}
+                onValueCommit={applyPriceFilter}
+              />
               <div className="flex items-center justify-between">
                 <div className="text-sm">
-                  <span>1.000.000₫</span>
+                  <span>{formatCurrency(priceRange[0])}</span>
                 </div>
                 <div className="text-sm">
-                  <span>7.000.000₫</span>
+                  <span>{formatCurrency(priceRange[1])}</span>
                 </div>
               </div>
-              <Button className="w-full" size="sm" variant="outline">
-                Áp dụng
-              </Button>
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -191,7 +281,7 @@ const ProductFilter = () => {
       <Button
         variant="outline"
         className="w-full"
-        onClick={() => router.push("/products")}
+        onClick={resetAllFilters}
       >
         Xóa bộ lọc
       </Button>
