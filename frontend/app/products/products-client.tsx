@@ -10,6 +10,10 @@ import { ShoppingCart, Loader2 } from "lucide-react";
 import ProductFilter from "@/components/ProductFilter";
 import { productAPI } from "@/lib/api";
 import { useCart } from "@/hooks/useCart";
+import { useGlobalLoading } from "@/hooks/useGlobalLoading";
+import { useLoadingFetch } from "@/lib/loadingFetch";
+import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
 
 interface SearchParamsProps {
   category?: string;
@@ -27,10 +31,14 @@ export default function ProductsClient({
   searchParams: SearchParamsProps;
 }) {
   const [products, setProducts] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const { addToCart } = useCart();
   const { toast } = useToast();
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
+  const { startLoading, stopLoading } = useGlobalLoading();
+  const { fetchWithLoading } = useLoadingFetch();
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
 
   // Serialize the search params for dependency tracking
   const searchParamsString = JSON.stringify(searchParams);
@@ -38,6 +46,7 @@ export default function ProductsClient({
   useEffect(() => {
     async function loadProducts() {
       setIsLoading(true);
+      
       try {
         // Add timestamp to avoid caching
         const timestamp = new Date().getTime();
@@ -76,7 +85,8 @@ export default function ProductsClient({
           cleanParams.maxPrice = searchParams.maxPrice;
         }
         
-        // Fetch products from the API with search parameters
+        // Fetch products from the API with search parameters - no need for explicit loading here
+        // as the ProductFilter component already shows loading when changing filters
         const result = await productAPI.getAll(cleanParams);
         setProducts(result);
       } catch (error) {
@@ -89,16 +99,33 @@ export default function ProductsClient({
         });
       } finally {
         setIsLoading(false);
+        stopLoading();
       }
     }
     
     loadProducts();
-  }, [searchParamsString, toast]);
+  }, [searchParamsString, toast, stopLoading]);
 
   const handleAddToCart = async (productId: string) => {
+    // Check if user is logged in
+    if (!isAuthenticated) {
+      toast({
+        title: "Đăng nhập để tiếp tục",
+        description: "Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng",
+      });
+      
+      // Redirect to login page with return URL
+      const returnUrl = encodeURIComponent(`/products?${new URLSearchParams(searchParams as any).toString()}`);
+      router.push(`/login?returnUrl=${returnUrl}`);
+      return;
+    }
+    
     setAddingToCart(productId);
     try {
-      await addToCart(productId, 1);
+      await fetchWithLoading(
+        () => addToCart(productId, 1),
+        "Đang thêm vào giỏ hàng..."
+      );
     } finally {
       setAddingToCart(null);
     }

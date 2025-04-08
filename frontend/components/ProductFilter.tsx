@@ -21,10 +21,12 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { useGlobalLoading } from "@/hooks/useGlobalLoading";
 
 const ProductFilter = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { startLoading } = useGlobalLoading();
   const currentCategory = searchParams.get("category") || "";
   const currentSort = searchParams.get("sort") || "newest";
   const currentSearch = searchParams.get("search") || "";
@@ -71,22 +73,22 @@ const ProductFilter = () => {
 
   // Handle category selection
   const handleCategoryChange = (category: string) => {
+    console.log('Category filter clicked:', category);
+    startLoading("Đang lọc sản phẩm theo danh mục...");
     const queryString = createQueryString("category", category);
     
-    // Use replace and force a full replacement rather than shallow routing
-    // This ensures that the server component will refetch with new params
-    router.push(`/products?${queryString}`, { 
-      scroll: false 
-    });
+    // Use hard navigation to ensure loading state is visible
+    window.location.href = `/products?${queryString}`;
   };
 
   // Handle brand selection
   const handleBrandChange = (brand: string) => {
+    console.log('Brand filter clicked:', brand);
+    startLoading("Đang lọc sản phẩm theo thương hiệu...");
     const queryString = createQueryString("brand", brand);
     
-    router.push(`/products?${queryString}`, {
-      scroll: false
-    });
+    // Use hard navigation to ensure loading state is visible
+    window.location.href = `/products?${queryString}`;
   };
 
   // Handle price range change - update local state only 
@@ -94,8 +96,10 @@ const ProductFilter = () => {
     setPriceRange(value);
   };
 
-  // Handle price filter apply - this actually updates the URL
+  // Handle price filter apply
   const applyPriceFilter = (value: [number, number]) => {
+    console.log('Price filter applied:', value);
+    startLoading("Đang lọc sản phẩm theo giá...");
     // Convert slider values to actual prices
     const minPrice = Math.round(value[0] * 100000);
     const maxPrice = Math.round(value[1] * 100000);
@@ -121,32 +125,31 @@ const ProductFilter = () => {
     
     const queryString = params.toString();
     
-    router.push(`/products?${queryString}`, {
-      scroll: false
-    });
+    // Use hard navigation to ensure loading state is visible
+    window.location.href = `/products?${queryString}`;
   };
 
   // Handle sort change
   const handleSortChange = (sort: string) => {
+    console.log('Sort changed:', sort);
+    startLoading("Đang sắp xếp sản phẩm...");
     const queryString = createQueryString("sort", sort);
     
-    // Use replace and force a full replacement rather than shallow routing
-    router.push(`/products?${queryString}`, {
-      scroll: false
-    });
+    // Use hard navigation to ensure loading state is visible
+    window.location.href = `/products?${queryString}`;
   };
 
   // Handle search
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    console.log('Search submitted');
+    startLoading("Đang tìm kiếm...");
     const formData = new FormData(e.currentTarget);
     const search = formData.get("search") as string;
     const queryString = createQueryString("search", search);
     
-    // Use replace and force a full replacement rather than shallow routing 
-    router.push(`/products?${queryString}`, {
-      scroll: false
-    });
+    // Use hard navigation to ensure loading state is visible
+    window.location.href = `/products?${queryString}`;
   };
 
   // Format currency 
@@ -160,11 +163,13 @@ const ProductFilter = () => {
 
   // Reset all filters
   const resetAllFilters = () => {
+    console.log('Filters reset');
+    startLoading("Đang đặt lại bộ lọc...");
     // Reset price range state to default values
     setPriceRange([0, 100]);
     
-    // Clear all URL parameters and navigate to base products page
-    router.push("/products", { scroll: false });
+    // Use hard navigation to ensure loading state is visible
+    window.location.href = "/products";
   };
 
   return (

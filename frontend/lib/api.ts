@@ -79,45 +79,61 @@ async function fetchAPI<T>(
 
 // Authentication services
 export const authAPI = {
-  login: async (email: string, password: string) => {
-    const data = await fetchAPI<{ token: string; user: any }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    
-    // Save token to localStorage
-    if (typeof window !== 'undefined' && data.token) {
-      localStorage.setItem('token', data.token);
-    }
-    
-    return data;
-  },
-  
-  register: async (userData: any) => {
-    return fetchAPI<{ user: any }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
+  register: async (userData: { name: string; email: string; password: string }) => {
+    // For now, simulate registration success
+    // In a real app, this would call your backend API
+    return new Promise<{ success: boolean }>((resolve) => {
+      setTimeout(() => {
+        // Store in localStorage for demo purposes
+        localStorage.setItem('user', JSON.stringify({
+          id: 'user-' + Date.now(),
+          name: userData.name,
+          email: userData.email,
+          isAuthenticated: true
+        }));
+        resolve({ success: true });
+      }, 1000);
     });
   },
   
-  logout: () => {
-    // Clear token from localStorage
+  login: async (credentials: { email: string; password: string }) => {
+    // For now, simulate login success
+    // In a real app, this would validate credentials with your backend
+    return new Promise<{ user: any }>((resolve, reject) => {
+      setTimeout(() => {
+        // Demo validation - in a real app, this would be handled by the backend
+        if (credentials.email && credentials.password) {
+          const user = {
+            id: 'user-' + Date.now(),
+            name: 'User', // In a real app, this would come from the API
+            email: credentials.email,
+            isAuthenticated: true
+          };
+          localStorage.setItem('user', JSON.stringify(user));
+          resolve({ user });
+        } else {
+          reject(new Error('Invalid credentials'));
+        }
+      }, 1000);
+    });
+  },
+  
+  logout: async () => {
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        localStorage.removeItem('user');
+        resolve();
+      }, 500);
+    });
+  },
+  
+  getCurrentUser: () => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
+      const userStr = localStorage.getItem('user');
+      return userStr ? JSON.parse(userStr) : null;
     }
-  },
-  
-  getCurrentUser: async () => {
-    // Only attempt to get user if token exists
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token) return null;
-    
-    try {
-      return await fetchAPI<any>('/users/me');
-    } catch (error) {
-      return null;
-    }
-  },
+    return null;
+  }
 };
 
 // Product services

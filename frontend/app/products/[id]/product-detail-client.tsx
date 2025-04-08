@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +23,10 @@ import {
 import { Star, ShoppingCart, Check, RefreshCw, Shield, CircleHelp, Minus, Plus } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { Input } from "@/components/ui/input";
+import { useGlobalLoading } from "@/hooks/useGlobalLoading";
+import { useLoadingFetch } from "@/lib/loadingFetch";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/components/ui/use-toast";
 
 // Client-side product detail component
 export default function ProductDetailClient({ 
@@ -33,8 +37,14 @@ export default function ProductDetailClient({
   relatedProducts: any[];
 }) {
   const router = useRouter();
-  const { addToCart, isLoading } = useCart();
+  const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
+  const { startLoading, stopLoading } = useGlobalLoading();
+  const { fetchWithLoading } = useLoadingFetch();
+  const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const buyNowParam = searchParams.get('buyNow');
   
   // Handle quantity changes
   const increaseQuantity = () => setQuantity(prev => prev + 1);
@@ -46,13 +56,50 @@ export default function ProductDetailClient({
   
   // Handle add to cart
   const handleAddToCart = async () => {
-    await addToCart(product.id.toString(), quantity);
+    // Check if user is logged in
+    if (!isAuthenticated) {
+      toast({
+        title: "Đăng nhập để tiếp tục",
+        description: "Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng",
+      });
+      
+      // Redirect to login page with return URL
+      const returnUrl = encodeURIComponent(`/products/${product.id}`);
+      router.push(`/login?returnUrl=${returnUrl}`);
+      return;
+    }
+    
+    await fetchWithLoading(
+      () => addToCart(product.id.toString(), quantity),
+      "Đang thêm vào giỏ hàng..."
+    );
   };
   
   // Handle buy now
   const handleBuyNow = async () => {
-    await addToCart(product.id.toString(), quantity);
-    router.push('/cart');
+    // Check if user is logged in
+    if (!isAuthenticated) {
+      toast({
+        title: "Đăng nhập để tiếp tục",
+        description: "Vui lòng đăng nhập để mua sản phẩm",
+      });
+      
+      // Redirect to login with returnUrl and buyNow parameter
+      const returnUrl = encodeURIComponent(`/products/${product.id}?buyNow=true`);
+      router.push(`/login?returnUrl=${returnUrl}`);
+      return;
+    }
+    
+    console.log('Buy now clicked');
+    startLoading("Đang chuẩn bị giỏ hàng...");
+    try {
+      await addToCart(product.id.toString(), quantity);
+      // Use hard navigation to ensure loading state is visible
+      window.location.href = '/cart';
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      stopLoading();
+    }
   };
   
   // Use fallback images if product doesn't have images array
@@ -69,6 +116,13 @@ export default function ProductDetailClient({
     { name: "Chất liệu tròng", value: "Chống tia UV" },
     { name: "Xuất xứ", value: "Chính hãng" }
   ];
+
+  // Check if user came back from login with buyNow parameter
+  useEffect(() => {
+    if (isAuthenticated && buyNowParam === 'true') {
+      handleBuyNow();
+    }
+  }, [isAuthenticated, buyNowParam]);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -220,17 +274,17 @@ export default function ProductDetailClient({
               className="w-full h-12" 
               size="lg"
               onClick={handleAddToCart}
-              disabled={isLoading || product.inStock === false}
+              disabled={product.inStock === false}
             >
               <ShoppingCart className="mr-2 h-5 w-5" />
-              {isLoading ? "Đang thêm..." : "Thêm vào giỏ hàng"}
+              Thêm vào giỏ hàng
             </Button>
             <Button 
               variant="outline" 
               className="w-full h-12" 
               size="lg"
               onClick={handleBuyNow}
-              disabled={isLoading || product.inStock === false}
+              disabled={product.inStock === false}
             >
               Mua ngay
             </Button>
