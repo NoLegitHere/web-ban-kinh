@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
   experimental: {
     // @ts-ignore - NextJS types are sometimes behind the actual implementation
     workerThreads: false,
-    cpus: 1
+    cpus: 4
   },
   reactStrictMode: true
 };

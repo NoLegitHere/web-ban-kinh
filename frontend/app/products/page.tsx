@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import ProductsClient from "./products-client";
-import { Loader2 } from "lucide-react";
+import LoadingScreen from "@/components/LoadingScreen";
 
 interface SearchParams {
   category?: string;
@@ -30,14 +30,7 @@ export default function ProductsPage({
   if (searchParams.maxPrice) sanitizedParams.maxPrice = String(searchParams.maxPrice);
 
   return (
-    <Suspense
-      fallback={
-        <div className="flex justify-center items-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-2">Đang tải sản phẩm...</span>
-        </div>
-      }
-    >
+    <Suspense fallback={<LoadingScreen message="Đang tải sản phẩm..." />}>
       <ProductsClient searchParams={sanitizedParams} />
     </Suspense>
   );
