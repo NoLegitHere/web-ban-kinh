@@ -15,4 +15,4 @@ start /B node --max-old-space-size=2048 dist/index.js > server.log 2>&1
 echo Server started and logging to server.log
 echo To stop the server, use Task Manager to end the node.exe process
 
-start http://localhost:3000/products 
+start http://localhost:3000/ 
